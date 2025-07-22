@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Image Similarity Game</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+  }
+  #image-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    max-width: 600px;
+    margin-bottom: 20px;
+  }
+  .img-wrapper {
+    width: 45%;
+    border: 4px solid transparent;
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+  }
+  .img-wrapper.selected {
+    border-color: blue;
+  }
+  .img-wrapper.correct {
+    border-color: green;
+  }
+  img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  button {
+    margin-right: 10px;
+    padding: 10px 20px;
+    font-size: 16px;
+  }
+</style>
+</head>
+<body>
+
+<h2>Image Similarity Game</h2>
+<div id="image-container"></div>
+
+<button id="reveal-btn">Reveal Similarity</button>
+<button id="continue-btn" disabled>Continue</button>
+
+<script>
+  
+  // Similarity data embedded directly here
+  const similarityData = [
+    { "image1": "img01.jpg", "image2": "img02.jpg", "similarity": 0.95 },
+    { "image1": "img03.jpg", "image2": "img04.jpg", "similarity": 0.90 },
+    { "image1": "img05.jpg", "image2": "img06.jpg", "similarity": 0.85 },
+    // ... add the rest
+  ];
+
+  // List of all images (20 images named img01.jpg ... img20.jpg)
+  const allImages = [];
+  for(let i=1; i<=20; i++){
+    allImages.push(`img${String(i).padStart(2,'0')}.jpg`);
+  }
+
+  const container = document.getElementById('image-container');
+  const revealBtn = document.getElementById('reveal-btn');
+  const continueBtn = document.getElementById('continue-btn');
+
+  let currentRoundImages = [];
+  let selectedIndices = new Set();
+  let correctPair = [];
+
+  // Find highest similarity pair from similarityData
+  function findHighestSimilarityPair(){
+    let maxScore = -Infinity;
+    let topPair = null;
+    similarityData.forEach(pair => {
+      if(pair.similarity > maxScore){
+        maxScore = pair.similarity;
+        topPair = pair;
+      }
+    });
+    return topPair;
+  }
+
+  // Pick two random images excluding given set
+  function pickRandomImages(excludeSet, count){
+    const candidates = allImages.filter(img => !excludeSet.has(img));
+    const picked = [];
+    while(picked.length < count && candidates.length > 0){
+      const idx = Math.floor(Math.random() * candidates.length);
+      picked.push(candidates.splice(idx,1)[0]);
+    }
+    return picked;
+  }
+
+  // Shuffle an array
+  function shuffle(array) {
+    for(let i = array.length -1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+
+  function renderImages(){
+    container.innerHTML = '';
+    selectedIndices.clear();
+
+    currentRoundImages.forEach((imgName, idx) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'img-wrapper';
+      wrapper.dataset.index = idx;
+
+      const img = document.createElement('img');
+      img.src = `images/${imgName}`;
+      img.alt = imgName;
+
+      wrapper.appendChild(img);
+      container.appendChild(wrapper);
+
+      wrapper.addEventListener('click', () => {
+        if(selectedIndices.has(idx)){
+          selectedIndices.delete(idx);
+          wrapper.classList.remove('selected');
+        } else if(selectedIndices.size < 2) {
+          selectedIndices.add(idx);
+          wrapper.classList.add('selected');
+        }
+      });
+    });
+
+    revealBtn.disabled = false;
+    continueBtn.disabled = true;
+  }
+
+  function startRound(){
+    const topPair = findHighestSimilarityPair();
+    correctPair = [topPair.image1, topPair.image2];
+
+    // Pick 2 random distractors not in correctPair
+    const excludeSet = new Set(correctPair);
+    const distractors = pickRandomImages(excludeSet, 2);
+
+    currentRoundImages = shuffle([...correctPair, ...distractors]);
+    renderImages();
+  }
+
+  revealBtn.addEventListener('click', () => {
+    // Highlight correct images green
+    const wrappers = container.querySelectorAll('.img-wrapper');
+    wrappers.forEach((wrapper) => {
+      const imgName = currentRoundImages[wrapper.dataset.index];
+      if(correctPair.includes(imgName)) {
+        wrapper.classList.add('correct');
+      }
+    });
+    revealBtn.disabled = true;
+    continueBtn.disabled = false;
+  });
+
+  continueBtn.addEventListener('click', () => {
+    startRound();
+  });
+
+  // Start first round
+  startRound();
+</script>
+
+</body>
+</html>
