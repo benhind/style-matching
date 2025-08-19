@@ -1,592 +1,80 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" data-theme="dark">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Image Similarity Game</title>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    padding: 20px;
-  }
-  #image-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
-    max-width: 600px;
-    margin-bottom: 20px;
-  }
-  .img-wrapper {
-    width: 45%;
-    border: 4px solid transparent;
-    border-radius: 10px;
-    overflow: hidden;
-    cursor: pointer;
-    position: relative;
-  }
-  .img-wrapper.selected {
-    border-color: blue;
-  }
-  .img-wrapper.correct {
-    border-color: green;
-  }
-  img {
-    width: 100%;
-    height: auto;
-    display: block;
-  }
-  button {
-    margin-right: 10px;
-    padding: 10px 20px;
-    font-size: 16px;
-  }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Style Matching — Minimal Image Pair Game</title>
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <header>
+    <div class="container nav">
+  <div class="brand" id="brandBtn" style="cursor:pointer">Style&nbsp;Matching</div>
+      <div class="spacer"></div>
+      <button class="btn ghost" id="themeToggle" aria-label="Toggle color theme">Toggle&nbsp;Theme</button>
+    </div>
+  </header>
 
-<h2>Image Similarity</h2>
-<div id="image-container"></div>
+  <main class="container">
+    <!-- ===================== Welcome View ===================== -->
+    <section id="welcomeView" class="view active">
+      <div class="hero">
+        <div class="hero-card" role="region" aria-label="Welcome">
+          <div class="hero-copy">
+            <h1>Find the most similar pair.</h1>
+            <p>A web app for a simple image-pair game.</p>
+            <ul style="margin:0 0 6px 18px; color:var(--muted);">
+              <li>Local image provider (manifest-based)</li>
+              <li>Image processing pipeline (uniform tiles)</li>
+              <li>Layout manager (responsive grid)</li>
+              <li>Similarity API from local JS</li>
+            </ul>
+            <div class="hero-actions">
+              <button class="btn primary" id="startBtn">Enter Game</button>
+              <button class="btn ghost" id="howBtn">About</button>
+            </div>
+          </div>
+          <div class="hero-media"><div class="placeholder" aria-hidden="true"></div></div>
+        </div>
+      </div>
+      <div id="aboutBlock" class="board" style="display:none">
+        <div style="padding:8px 4px; color:var(--muted);">
+          <strong>About:</strong> Demo architecture ready to swap providers/processors.
+        </div>
+      </div>
+    </section>
 
-<button id="reveal-btn">Reveal Similarity</button>
-<button id="continue-btn" disabled>Continue</button>
+    <!-- ===================== Game View ===================== -->
+    <section id="gameView" class="view">
+      <div class="board">
+        <div class="toolbar">
+          <div class="left controls">
+            <div class="field" title="How many images per round">
+              <label for="countInput">Images</label>
+              <input id="countInput" type="number" min="3" max="12" value="3" />
+            </div>
+            <button class="btn" id="nextBtn">Next batch</button>
+          </div>
+          <div class="right controls">
+            <button class="btn primary" id="checkBtn">Check answer</button>
+            <button class="btn ghost" id="resetBtn">Reset selection</button>
+          </div>
+        </div>
+        <div id="grid" class="grid" role="grid" aria-label="Image choices"></div>
+      </div>
+    </section>
+  </main>
 
-<script>
-  
-  // Similarity data embedded directly here
-  const similarityData = [
-  {"image1": "img01.jpg", "image2": "img01.jpg", "similarity": 1.0},
-  {"image1": "img01.jpg", "image2": "img02.jpg", "similarity": 0.3897},
-  {"image1": "img01.jpg", "image2": "img03.jpg", "similarity": 0.6171},
-  {"image1": "img01.jpg", "image2": "img04.jpg", "similarity": 0.455},
-  {"image1": "img01.jpg", "image2": "img05.jpg", "similarity": 0.5243},
-  {"image1": "img01.jpg", "image2": "img06.jpg", "similarity": 0.4061},
-  {"image1": "img01.jpg", "image2": "img07.jpg", "similarity": 0.5511},
-  {"image1": "img01.jpg", "image2": "img08.jpg", "similarity": 0.4601},
-  {"image1": "img01.jpg", "image2": "img09.jpg", "similarity": 0.5601},
-  {"image1": "img01.jpg", "image2": "img10.jpg", "similarity": 0.6616},
-  {"image1": "img01.jpg", "image2": "img11.jpg", "similarity": 0.423},
-  {"image1": "img01.jpg", "image2": "img12.jpg", "similarity": 0.5543},
-  {"image1": "img01.jpg", "image2": "img13.jpg", "similarity": 0.3773},
-  {"image1": "img01.jpg", "image2": "img14.jpg", "similarity": 0.605},
-  {"image1": "img01.jpg", "image2": "img15.jpg", "similarity": 0.5887},
-  {"image1": "img01.jpg", "image2": "img16.jpg", "similarity": 0.5009},
-  {"image1": "img01.jpg", "image2": "img17.jpg", "similarity": 0.7882},
-  {"image1": "img01.jpg", "image2": "img18.jpg", "similarity": 0.6501},
-  {"image1": "img01.jpg", "image2": "img19.jpg", "similarity": 0.4321},
-  {"image1": "img01.jpg", "image2": "img20.jpg", "similarity": 0.8636},
-  {"image1": "img02.jpg", "image2": "img01.jpg", "similarity": 0.3897},
-  {"image1": "img02.jpg", "image2": "img02.jpg", "similarity": 1.0},
-  {"image1": "img02.jpg", "image2": "img03.jpg", "similarity": 0.4356},
-  {"image1": "img02.jpg", "image2": "img04.jpg", "similarity": 0.2919},
-  {"image1": "img02.jpg", "image2": "img05.jpg", "similarity": 0.2582},
-  {"image1": "img02.jpg", "image2": "img06.jpg", "similarity": 0.333},
-  {"image1": "img02.jpg", "image2": "img07.jpg", "similarity": 0.373},
-  {"image1": "img02.jpg", "image2": "img08.jpg", "similarity": 0.1929},
-  {"image1": "img02.jpg", "image2": "img09.jpg", "similarity": 0.5716},
-  {"image1": "img02.jpg", "image2": "img10.jpg", "similarity": 0.3553},
-  {"image1": "img02.jpg", "image2": "img11.jpg", "similarity": 0.376},
-  {"image1": "img02.jpg", "image2": "img12.jpg", "similarity": 0.843},
-  {"image1": "img02.jpg", "image2": "img13.jpg", "similarity": 0.3469},
-  {"image1": "img02.jpg", "image2": "img14.jpg", "similarity": 0.4967},
-  {"image1": "img02.jpg", "image2": "img15.jpg", "similarity": 0.4389},
-  {"image1": "img02.jpg", "image2": "img16.jpg", "similarity": 0.368},
-  {"image1": "img02.jpg", "image2": "img17.jpg", "similarity": 0.3912},
-  {"image1": "img02.jpg", "image2": "img18.jpg", "similarity": 0.5561},
-  {"image1": "img02.jpg", "image2": "img19.jpg", "similarity": 0.3651},
-  {"image1": "img02.jpg", "image2": "img20.jpg", "similarity": 0.3724},
-  {"image1": "img03.jpg", "image2": "img01.jpg", "similarity": 0.6171},
-  {"image1": "img03.jpg", "image2": "img02.jpg", "similarity": 0.4356},
-  {"image1": "img03.jpg", "image2": "img03.jpg", "similarity": 1.0},
-  {"image1": "img03.jpg", "image2": "img04.jpg", "similarity": 0.5862},
-  {"image1": "img03.jpg", "image2": "img05.jpg", "similarity": 0.5118},
-  {"image1": "img03.jpg", "image2": "img06.jpg", "similarity": 0.2301},
-  {"image1": "img03.jpg", "image2": "img07.jpg", "similarity": 0.3133},
-  {"image1": "img03.jpg", "image2": "img08.jpg", "similarity": 0.2201},
-  {"image1": "img03.jpg", "image2": "img09.jpg", "similarity": 0.7149},
-  {"image1": "img03.jpg", "image2": "img10.jpg", "similarity": 0.5179},
-  {"image1": "img03.jpg", "image2": "img11.jpg", "similarity": 0.3627},
-  {"image1": "img03.jpg", "image2": "img12.jpg", "similarity": 0.5822},
-  {"image1": "img03.jpg", "image2": "img13.jpg", "similarity": 0.5053},
-  {"image1": "img03.jpg", "image2": "img14.jpg", "similarity": 0.4269},
-  {"image1": "img03.jpg", "image2": "img15.jpg", "similarity": 0.7973},
-  {"image1": "img03.jpg", "image2": "img16.jpg", "similarity": 0.4861},
-  {"image1": "img03.jpg", "image2": "img17.jpg", "similarity": 0.524},
-  {"image1": "img03.jpg", "image2": "img18.jpg", "similarity": 0.7389},
-  {"image1": "img03.jpg", "image2": "img19.jpg", "similarity": 0.4174},
-  {"image1": "img03.jpg", "image2": "img20.jpg", "similarity": 0.6309},
-  {"image1": "img04.jpg", "image2": "img01.jpg", "similarity": 0.455},
-  {"image1": "img04.jpg", "image2": "img02.jpg", "similarity": 0.2919},
-  {"image1": "img04.jpg", "image2": "img03.jpg", "similarity": 0.5862},
-  {"image1": "img04.jpg", "image2": "img04.jpg", "similarity": 1.0},
-  {"image1": "img04.jpg", "image2": "img05.jpg", "similarity": 0.7489},
-  {"image1": "img04.jpg", "image2": "img06.jpg", "similarity": 0.6134},
-  {"image1": "img04.jpg", "image2": "img07.jpg", "similarity": 0.4812},
-  {"image1": "img04.jpg", "image2": "img08.jpg", "similarity": 0.5538},
-  {"image1": "img04.jpg", "image2": "img09.jpg", "similarity": 0.4851},
-  {"image1": "img04.jpg", "image2": "img10.jpg", "similarity": 0.2468},
-  {"image1": "img04.jpg", "image2": "img11.jpg", "similarity": 0.618},
-  {"image1": "img04.jpg", "image2": "img12.jpg", "similarity": 0.4643},
-  {"image1": "img04.jpg", "image2": "img13.jpg", "similarity": 0.8495},
-  {"image1": "img04.jpg", "image2": "img14.jpg", "similarity": 0.5133},
-  {"image1": "img04.jpg", "image2": "img15.jpg", "similarity": 0.6075},
-  {"image1": "img04.jpg", "image2": "img16.jpg", "similarity": 0.7008},
-  {"image1": "img04.jpg", "image2": "img17.jpg", "similarity": 0.4189},
-  {"image1": "img04.jpg", "image2": "img18.jpg", "similarity": 0.5786},
-  {"image1": "img04.jpg", "image2": "img19.jpg", "similarity": 0.6282},
-  {"image1": "img04.jpg", "image2": "img20.jpg", "similarity": 0.5796},
-  {"image1": "img05.jpg", "image2": "img01.jpg", "similarity": 0.5243},
-  {"image1": "img05.jpg", "image2": "img02.jpg", "similarity": 0.2582},
-  {"image1": "img05.jpg", "image2": "img03.jpg", "similarity": 0.5118},
-  {"image1": "img05.jpg", "image2": "img04.jpg", "similarity": 0.7489},
-  {"image1": "img05.jpg", "image2": "img05.jpg", "similarity": 1.0},
-  {"image1": "img05.jpg", "image2": "img06.jpg", "similarity": 0.6223},
-  {"image1": "img05.jpg", "image2": "img07.jpg", "similarity": 0.5473},
-  {"image1": "img05.jpg", "image2": "img08.jpg", "similarity": 0.6015},
-  {"image1": "img05.jpg", "image2": "img09.jpg", "similarity": 0.4674},
-  {"image1": "img05.jpg", "image2": "img10.jpg", "similarity": 0.4355},
-  {"image1": "img05.jpg", "image2": "img11.jpg", "similarity": 0.7212},
-  {"image1": "img05.jpg", "image2": "img12.jpg", "similarity": 0.4499},
-  {"image1": "img05.jpg", "image2": "img13.jpg", "similarity": 0.6467},
-  {"image1": "img05.jpg", "image2": "img14.jpg", "similarity": 0.6011},
-  {"image1": "img05.jpg", "image2": "img15.jpg", "similarity": 0.4937},
-  {"image1": "img05.jpg", "image2": "img16.jpg", "similarity": 0.9157},
-  {"image1": "img05.jpg", "image2": "img17.jpg", "similarity": 0.5227},
-  {"image1": "img05.jpg", "image2": "img18.jpg", "similarity": 0.563},
-  {"image1": "img05.jpg", "image2": "img19.jpg", "similarity": 0.712},
-  {"image1": "img05.jpg", "image2": "img20.jpg", "similarity": 0.6115},
-  {"image1": "img06.jpg", "image2": "img01.jpg", "similarity": 0.4061},
-  {"image1": "img06.jpg", "image2": "img02.jpg", "similarity": 0.333},
-  {"image1": "img06.jpg", "image2": "img03.jpg", "similarity": 0.2301},
-  {"image1": "img06.jpg", "image2": "img04.jpg", "similarity": 0.6134},
-  {"image1": "img06.jpg", "image2": "img05.jpg", "similarity": 0.6223},
-  {"image1": "img06.jpg", "image2": "img06.jpg", "similarity": 1.0},
-  {"image1": "img06.jpg", "image2": "img07.jpg", "similarity": 0.557},
-  {"image1": "img06.jpg", "image2": "img08.jpg", "similarity": 0.829},
-  {"image1": "img06.jpg", "image2": "img09.jpg", "similarity": 0.1921},
-  {"image1": "img06.jpg", "image2": "img10.jpg", "similarity": 0.1317},
-  {"image1": "img06.jpg", "image2": "img11.jpg", "similarity": 0.6865},
-  {"image1": "img06.jpg", "image2": "img12.jpg", "similarity": 0.4035},
-  {"image1": "img06.jpg", "image2": "img13.jpg", "similarity": 0.512},
-  {"image1": "img06.jpg", "image2": "img14.jpg", "similarity": 0.6443},
-  {"image1": "img06.jpg", "image2": "img15.jpg", "similarity": 0.2162},
-  {"image1": "img06.jpg", "image2": "img16.jpg", "similarity": 0.656},
-  {"image1": "img06.jpg", "image2": "img17.jpg", "similarity": 0.3497},
-  {"image1": "img06.jpg", "image2": "img18.jpg", "similarity": 0.2786},
-  {"image1": "img06.jpg", "image2": "img19.jpg", "similarity": 0.5635},
-  {"image1": "img06.jpg", "image2": "img20.jpg", "similarity": 0.4685},
-  {"image1": "img07.jpg", "image2": "img01.jpg", "similarity": 0.5511},
-  {"image1": "img07.jpg", "image2": "img02.jpg", "similarity": 0.373},
-  {"image1": "img07.jpg", "image2": "img03.jpg", "similarity": 0.3133},
-  {"image1": "img07.jpg", "image2": "img04.jpg", "similarity": 0.4812},
-  {"image1": "img07.jpg", "image2": "img05.jpg", "similarity": 0.5473},
-  {"image1": "img07.jpg", "image2": "img06.jpg", "similarity": 0.557},
-  {"image1": "img07.jpg", "image2": "img07.jpg", "similarity": 1.0},
-  {"image1": "img07.jpg", "image2": "img08.jpg", "similarity": 0.53},
-  {"image1": "img07.jpg", "image2": "img09.jpg", "similarity": 0.5518},
-  {"image1": "img07.jpg", "image2": "img10.jpg", "similarity": 0.524},
-  {"image1": "img07.jpg", "image2": "img11.jpg", "similarity": 0.6506},
-  {"image1": "img07.jpg", "image2": "img12.jpg", "similarity": 0.4789},
-  {"image1": "img07.jpg", "image2": "img13.jpg", "similarity": 0.4209},
-  {"image1": "img07.jpg", "image2": "img14.jpg", "similarity": 0.8508},
-  {"image1": "img07.jpg", "image2": "img15.jpg", "similarity": 0.2918},
-  {"image1": "img07.jpg", "image2": "img16.jpg", "similarity": 0.5346},
-  {"image1": "img07.jpg", "image2": "img17.jpg", "similarity": 0.6512},
-  {"image1": "img07.jpg", "image2": "img18.jpg", "similarity": 0.5288},
-  {"image1": "img07.jpg", "image2": "img19.jpg", "similarity": 0.6205},
-  {"image1": "img07.jpg", "image2": "img20.jpg", "similarity": 0.5311},
-  {"image1": "img08.jpg", "image2": "img01.jpg", "similarity": 0.4601},
-  {"image1": "img08.jpg", "image2": "img02.jpg", "similarity": 0.1929},
-  {"image1": "img08.jpg", "image2": "img03.jpg", "similarity": 0.2201},
-  {"image1": "img08.jpg", "image2": "img04.jpg", "similarity": 0.5538},
-  {"image1": "img08.jpg", "image2": "img05.jpg", "similarity": 0.6015},
-  {"image1": "img08.jpg", "image2": "img06.jpg", "similarity": 0.829},
-  {"image1": "img08.jpg", "image2": "img07.jpg", "similarity": 0.53},
-  {"image1": "img08.jpg", "image2": "img08.jpg", "similarity": 1.0},
-  {"image1": "img08.jpg", "image2": "img09.jpg", "similarity": 0.1609},
-  {"image1": "img08.jpg", "image2": "img10.jpg", "similarity": 0.119},
-  {"image1": "img08.jpg", "image2": "img11.jpg", "similarity": 0.5381},
-  {"image1": "img08.jpg", "image2": "img12.jpg", "similarity": 0.336},
-  {"image1": "img08.jpg", "image2": "img13.jpg", "similarity": 0.4089},
-  {"image1": "img08.jpg", "image2": "img14.jpg", "similarity": 0.6047},
-  {"image1": "img08.jpg", "image2": "img15.jpg", "similarity": 0.2165},
-  {"image1": "img08.jpg", "image2": "img16.jpg", "similarity": 0.5968},
-  {"image1": "img08.jpg", "image2": "img17.jpg", "similarity": 0.33},
-  {"image1": "img08.jpg", "image2": "img18.jpg", "similarity": 0.2707},
-  {"image1": "img08.jpg", "image2": "img19.jpg", "similarity": 0.4446},
-  {"image1": "img08.jpg", "image2": "img20.jpg", "similarity": 0.549},
-  {"image1": "img09.jpg", "image2": "img01.jpg", "similarity": 0.5601},
-  {"image1": "img09.jpg", "image2": "img02.jpg", "similarity": 0.5716},
-  {"image1": "img09.jpg", "image2": "img03.jpg", "similarity": 0.7149},
-  {"image1": "img09.jpg", "image2": "img04.jpg", "similarity": 0.4851},
-  {"image1": "img09.jpg", "image2": "img05.jpg", "similarity": 0.4674},
-  {"image1": "img09.jpg", "image2": "img06.jpg", "similarity": 0.1921},
-  {"image1": "img09.jpg", "image2": "img07.jpg", "similarity": 0.5518},
-  {"image1": "img09.jpg", "image2": "img08.jpg", "similarity": 0.1609},
-  {"image1": "img09.jpg", "image2": "img09.jpg", "similarity": 1.0},
-  {"image1": "img09.jpg", "image2": "img10.jpg", "similarity": 0.5949},
-  {"image1": "img09.jpg", "image2": "img11.jpg", "similarity": 0.38},
-  {"image1": "img09.jpg", "image2": "img12.jpg", "similarity": 0.6277},
-  {"image1": "img09.jpg", "image2": "img13.jpg", "similarity": 0.4637},
-  {"image1": "img09.jpg", "image2": "img14.jpg", "similarity": 0.567},
-  {"image1": "img09.jpg", "image2": "img15.jpg", "similarity": 0.6872},
-  {"image1": "img09.jpg", "image2": "img16.jpg", "similarity": 0.4883},
-  {"image1": "img09.jpg", "image2": "img17.jpg", "similarity": 0.6135},
-  {"image1": "img09.jpg", "image2": "img18.jpg", "similarity": 0.8632},
-  {"image1": "img09.jpg", "image2": "img19.jpg", "similarity": 0.4557},
-  {"image1": "img09.jpg", "image2": "img20.jpg", "similarity": 0.4872},
-  {"image1": "img10.jpg", "image2": "img01.jpg", "similarity": 0.6616},
-  {"image1": "img10.jpg", "image2": "img02.jpg", "similarity": 0.3553},
-  {"image1": "img10.jpg", "image2": "img03.jpg", "similarity": 0.5179},
-  {"image1": "img10.jpg", "image2": "img04.jpg", "similarity": 0.2468},
-  {"image1": "img10.jpg", "image2": "img05.jpg", "similarity": 0.4355},
-  {"image1": "img10.jpg", "image2": "img06.jpg", "similarity": 0.1317},
-  {"image1": "img10.jpg", "image2": "img07.jpg", "similarity": 0.524},
-  {"image1": "img10.jpg", "image2": "img08.jpg", "similarity": 0.119},
-  {"image1": "img10.jpg", "image2": "img09.jpg", "similarity": 0.5949},
-  {"image1": "img10.jpg", "image2": "img10.jpg", "similarity": 1.0},
-  {"image1": "img10.jpg", "image2": "img11.jpg", "similarity": 0.3155},
-  {"image1": "img10.jpg", "image2": "img12.jpg", "similarity": 0.5112},
-  {"image1": "img10.jpg", "image2": "img13.jpg", "similarity": 0.1738},
-  {"image1": "img10.jpg", "image2": "img14.jpg", "similarity": 0.5016},
-  {"image1": "img10.jpg", "image2": "img15.jpg", "similarity": 0.4023},
-  {"image1": "img10.jpg", "image2": "img16.jpg", "similarity": 0.3988},
-  {"image1": "img10.jpg", "image2": "img17.jpg", "similarity": 0.8441},
-  {"image1": "img10.jpg", "image2": "img18.jpg", "similarity": 0.5917},
-  {"image1": "img10.jpg", "image2": "img19.jpg", "similarity": 0.4584},
-  {"image1": "img10.jpg", "image2": "img20.jpg", "similarity": 0.5308},
-  {"image1": "img11.jpg", "image2": "img01.jpg", "similarity": 0.423},
-  {"image1": "img11.jpg", "image2": "img02.jpg", "similarity": 0.376},
-  {"image1": "img11.jpg", "image2": "img03.jpg", "similarity": 0.3627},
-  {"image1": "img11.jpg", "image2": "img04.jpg", "similarity": 0.618},
-  {"image1": "img11.jpg", "image2": "img05.jpg", "similarity": 0.7212},
-  {"image1": "img11.jpg", "image2": "img06.jpg", "similarity": 0.6865},
-  {"image1": "img11.jpg", "image2": "img07.jpg", "similarity": 0.6506},
-  {"image1": "img11.jpg", "image2": "img08.jpg", "similarity": 0.5381},
-  {"image1": "img11.jpg", "image2": "img09.jpg", "similarity": 0.38},
-  {"image1": "img11.jpg", "image2": "img10.jpg", "similarity": 0.3155},
-  {"image1": "img11.jpg", "image2": "img11.jpg", "similarity": 1.0},
-  {"image1": "img11.jpg", "image2": "img12.jpg", "similarity": 0.5087},
-  {"image1": "img11.jpg", "image2": "img13.jpg", "similarity": 0.5296},
-  {"image1": "img11.jpg", "image2": "img14.jpg", "similarity": 0.7054},
-  {"image1": "img11.jpg", "image2": "img15.jpg", "similarity": 0.353},
-  {"image1": "img11.jpg", "image2": "img16.jpg", "similarity": 0.7467},
-  {"image1": "img11.jpg", "image2": "img17.jpg", "similarity": 0.3987},
-  {"image1": "img11.jpg", "image2": "img18.jpg", "similarity": 0.4501},
-  {"image1": "img11.jpg", "image2": "img19.jpg", "similarity": 0.8691},
-  {"image1": "img11.jpg", "image2": "img20.jpg", "similarity": 0.482},
-  {"image1": "img12.jpg", "image2": "img01.jpg", "similarity": 0.5543},
-  {"image1": "img12.jpg", "image2": "img02.jpg", "similarity": 0.843},
-  {"image1": "img12.jpg", "image2": "img03.jpg", "similarity": 0.5822},
-  {"image1": "img12.jpg", "image2": "img04.jpg", "similarity": 0.4643},
-  {"image1": "img12.jpg", "image2": "img05.jpg", "similarity": 0.4499},
-  {"image1": "img12.jpg", "image2": "img06.jpg", "similarity": 0.4035},
-  {"image1": "img12.jpg", "image2": "img07.jpg", "similarity": 0.4789},
-  {"image1": "img12.jpg", "image2": "img08.jpg", "similarity": 0.336},
-  {"image1": "img12.jpg", "image2": "img09.jpg", "similarity": 0.6277},
-  {"image1": "img12.jpg", "image2": "img10.jpg", "similarity": 0.5112},
-  {"image1": "img12.jpg", "image2": "img11.jpg", "similarity": 0.5087},
-  {"image1": "img12.jpg", "image2": "img12.jpg", "similarity": 1.0},
-  {"image1": "img12.jpg", "image2": "img13.jpg", "similarity": 0.4021},
-  {"image1": "img12.jpg", "image2": "img14.jpg", "similarity": 0.605},
-  {"image1": "img12.jpg", "image2": "img15.jpg", "similarity": 0.5213},
-  {"image1": "img12.jpg", "image2": "img16.jpg", "similarity": 0.5189},
-  {"image1": "img12.jpg", "image2": "img17.jpg", "similarity": 0.5603},
-  {"image1": "img12.jpg", "image2": "img18.jpg", "similarity": 0.6816},
-  {"image1": "img12.jpg", "image2": "img19.jpg", "similarity": 0.5603},
-  {"image1": "img12.jpg", "image2": "img20.jpg", "similarity": 0.5738},
-  {"image1": "img13.jpg", "image2": "img01.jpg", "similarity": 0.3773},
-  {"image1": "img13.jpg", "image2": "img02.jpg", "similarity": 0.3469},
-  {"image1": "img13.jpg", "image2": "img03.jpg", "similarity": 0.5053},
-  {"image1": "img13.jpg", "image2": "img04.jpg", "similarity": 0.8495},
-  {"image1": "img13.jpg", "image2": "img05.jpg", "similarity": 0.6467},
-  {"image1": "img13.jpg", "image2": "img06.jpg", "similarity": 0.512},
-  {"image1": "img13.jpg", "image2": "img07.jpg", "similarity": 0.4209},
-  {"image1": "img13.jpg", "image2": "img08.jpg", "similarity": 0.4089},
-  {"image1": "img13.jpg", "image2": "img09.jpg", "similarity": 0.4637},
-  {"image1": "img13.jpg", "image2": "img10.jpg", "similarity": 0.1738},
-  {"image1": "img13.jpg", "image2": "img11.jpg", "similarity": 0.5296},
-  {"image1": "img13.jpg", "image2": "img12.jpg", "similarity": 0.4021},
-  {"image1": "img13.jpg", "image2": "img13.jpg", "similarity": 1.0},
-  {"image1": "img13.jpg", "image2": "img14.jpg", "similarity": 0.4459},
-  {"image1": "img13.jpg", "image2": "img15.jpg", "similarity": 0.5943},
-  {"image1": "img13.jpg", "image2": "img16.jpg", "similarity": 0.6241},
-  {"image1": "img13.jpg", "image2": "img17.jpg", "similarity": 0.3417},
-  {"image1": "img13.jpg", "image2": "img18.jpg", "similarity": 0.5714},
-  {"image1": "img13.jpg", "image2": "img19.jpg", "similarity": 0.5113},
-  {"image1": "img13.jpg", "image2": "img20.jpg", "similarity": 0.5536},
-  {"image1": "img14.jpg", "image2": "img01.jpg", "similarity": 0.605},
-  {"image1": "img14.jpg", "image2": "img02.jpg", "similarity": 0.4967},
-  {"image1": "img14.jpg", "image2": "img03.jpg", "similarity": 0.4269},
-  {"image1": "img14.jpg", "image2": "img04.jpg", "similarity": 0.5133},
-  {"image1": "img14.jpg", "image2": "img05.jpg", "similarity": 0.6011},
-  {"image1": "img14.jpg", "image2": "img06.jpg", "similarity": 0.6443},
-  {"image1": "img14.jpg", "image2": "img07.jpg", "similarity": 0.8508},
-  {"image1": "img14.jpg", "image2": "img08.jpg", "similarity": 0.6047},
-  {"image1": "img14.jpg", "image2": "img09.jpg", "similarity": 0.567},
-  {"image1": "img14.jpg", "image2": "img10.jpg", "similarity": 0.5016},
-  {"image1": "img14.jpg", "image2": "img11.jpg", "similarity": 0.7054},
-  {"image1": "img14.jpg", "image2": "img12.jpg", "similarity": 0.605},
-  {"image1": "img14.jpg", "image2": "img13.jpg", "similarity": 0.4459},
-  {"image1": "img14.jpg", "image2": "img14.jpg", "similarity": 1.0},
-  {"image1": "img14.jpg", "image2": "img15.jpg", "similarity": 0.3491},
-  {"image1": "img14.jpg", "image2": "img16.jpg", "similarity": 0.6245},
-  {"image1": "img14.jpg", "image2": "img17.jpg", "similarity": 0.619},
-  {"image1": "img14.jpg", "image2": "img18.jpg", "similarity": 0.5541},
-  {"image1": "img14.jpg", "image2": "img19.jpg", "similarity": 0.6861},
-  {"image1": "img14.jpg", "image2": "img20.jpg", "similarity": 0.5982},
-  {"image1": "img15.jpg", "image2": "img01.jpg", "similarity": 0.5887},
-  {"image1": "img15.jpg", "image2": "img02.jpg", "similarity": 0.4389},
-  {"image1": "img15.jpg", "image2": "img03.jpg", "similarity": 0.7973},
-  {"image1": "img15.jpg", "image2": "img04.jpg", "similarity": 0.6075},
-  {"image1": "img15.jpg", "image2": "img05.jpg", "similarity": 0.4937},
-  {"image1": "img15.jpg", "image2": "img06.jpg", "similarity": 0.2162},
-  {"image1": "img15.jpg", "image2": "img07.jpg", "similarity": 0.2918},
-  {"image1": "img15.jpg", "image2": "img08.jpg", "similarity": 0.2165},
-  {"image1": "img15.jpg", "image2": "img09.jpg", "similarity": 0.6872},
-  {"image1": "img15.jpg", "image2": "img10.jpg", "similarity": 0.4023},
-  {"image1": "img15.jpg", "image2": "img11.jpg", "similarity": 0.353},
-  {"image1": "img15.jpg", "image2": "img12.jpg", "similarity": 0.5213},
-  {"image1": "img15.jpg", "image2": "img13.jpg", "similarity": 0.5943},
-  {"image1": "img15.jpg", "image2": "img14.jpg", "similarity": 0.3491},
-  {"image1": "img15.jpg", "image2": "img15.jpg", "similarity": 1.0},
-  {"image1": "img15.jpg", "image2": "img16.jpg", "similarity": 0.4872},
-  {"image1": "img15.jpg", "image2": "img17.jpg", "similarity": 0.4941},
-  {"image1": "img15.jpg", "image2": "img18.jpg", "similarity": 0.7667},
-  {"image1": "img15.jpg", "image2": "img19.jpg", "similarity": 0.4021},
-  {"image1": "img15.jpg", "image2": "img20.jpg", "similarity": 0.5906},
-  {"image1": "img16.jpg", "image2": "img01.jpg", "similarity": 0.5009},
-  {"image1": "img16.jpg", "image2": "img02.jpg", "similarity": 0.368},
-  {"image1": "img16.jpg", "image2": "img03.jpg", "similarity": 0.4861},
-  {"image1": "img16.jpg", "image2": "img04.jpg", "similarity": 0.7008},
-  {"image1": "img16.jpg", "image2": "img05.jpg", "similarity": 0.9157},
-  {"image1": "img16.jpg", "image2": "img06.jpg", "similarity": 0.656},
-  {"image1": "img16.jpg", "image2": "img07.jpg", "similarity": 0.5346},
-  {"image1": "img16.jpg", "image2": "img08.jpg", "similarity": 0.5968},
-  {"image1": "img16.jpg", "image2": "img09.jpg", "similarity": 0.4883},
-  {"image1": "img16.jpg", "image2": "img10.jpg", "similarity": 0.3988},
-  {"image1": "img16.jpg", "image2": "img11.jpg", "similarity": 0.7467},
-  {"image1": "img16.jpg", "image2": "img12.jpg", "similarity": 0.5189},
-  {"image1": "img16.jpg", "image2": "img13.jpg", "similarity": 0.6241},
-  {"image1": "img16.jpg", "image2": "img14.jpg", "similarity": 0.6245},
-  {"image1": "img16.jpg", "image2": "img15.jpg", "similarity": 0.4872},
-  {"image1": "img16.jpg", "image2": "img16.jpg", "similarity": 1.0},
-  {"image1": "img16.jpg", "image2": "img17.jpg", "similarity": 0.4756},
-  {"image1": "img16.jpg", "image2": "img18.jpg", "similarity": 0.5636},
-  {"image1": "img16.jpg", "image2": "img19.jpg", "similarity": 0.7334},
-  {"image1": "img16.jpg", "image2": "img20.jpg", "similarity": 0.5664},
-  {"image1": "img17.jpg", "image2": "img01.jpg", "similarity": 0.7882},
-  {"image1": "img17.jpg", "image2": "img02.jpg", "similarity": 0.3912},
-  {"image1": "img17.jpg", "image2": "img03.jpg", "similarity": 0.524},
-  {"image1": "img17.jpg", "image2": "img04.jpg", "similarity": 0.4189},
-  {"image1": "img17.jpg", "image2": "img05.jpg", "similarity": 0.5227},
-  {"image1": "img17.jpg", "image2": "img06.jpg", "similarity": 0.3497},
-  {"image1": "img17.jpg", "image2": "img07.jpg", "similarity": 0.6512},
-  {"image1": "img17.jpg", "image2": "img08.jpg", "similarity": 0.33},
-  {"image1": "img17.jpg", "image2": "img09.jpg", "similarity": 0.6135},
-  {"image1": "img17.jpg", "image2": "img10.jpg", "similarity": 0.8441},
-  {"image1": "img17.jpg", "image2": "img11.jpg", "similarity": 0.3987},
-  {"image1": "img17.jpg", "image2": "img12.jpg", "similarity": 0.5603},
-  {"image1": "img17.jpg", "image2": "img13.jpg", "similarity": 0.3417},
-  {"image1": "img17.jpg", "image2": "img14.jpg", "similarity": 0.619},
-  {"image1": "img17.jpg", "image2": "img15.jpg", "similarity": 0.4941},
-  {"image1": "img17.jpg", "image2": "img16.jpg", "similarity": 0.4756},
-  {"image1": "img17.jpg", "image2": "img17.jpg", "similarity": 1.0},
-  {"image1": "img17.jpg", "image2": "img18.jpg", "similarity": 0.6824},
-  {"image1": "img17.jpg", "image2": "img19.jpg", "similarity": 0.491},
-  {"image1": "img17.jpg", "image2": "img20.jpg", "similarity": 0.6921},
-  {"image1": "img18.jpg", "image2": "img01.jpg", "similarity": 0.6501},
-  {"image1": "img18.jpg", "image2": "img02.jpg", "similarity": 0.5561},
-  {"image1": "img18.jpg", "image2": "img03.jpg", "similarity": 0.7389},
-  {"image1": "img18.jpg", "image2": "img04.jpg", "similarity": 0.5786},
-  {"image1": "img18.jpg", "image2": "img05.jpg", "similarity": 0.563},
-  {"image1": "img18.jpg", "image2": "img06.jpg", "similarity": 0.2786},
-  {"image1": "img18.jpg", "image2": "img07.jpg", "similarity": 0.5288},
-  {"image1": "img18.jpg", "image2": "img08.jpg", "similarity": 0.2707},
-  {"image1": "img18.jpg", "image2": "img09.jpg", "similarity": 0.8632},
-  {"image1": "img18.jpg", "image2": "img10.jpg", "similarity": 0.5917},
-  {"image1": "img18.jpg", "image2": "img11.jpg", "similarity": 0.4501},
-  {"image1": "img18.jpg", "image2": "img12.jpg", "similarity": 0.6816},
-  {"image1": "img18.jpg", "image2": "img13.jpg", "similarity": 0.5714},
-  {"image1": "img18.jpg", "image2": "img14.jpg", "similarity": 0.5541},
-  {"image1": "img18.jpg", "image2": "img15.jpg", "similarity": 0.7667},
-  {"image1": "img18.jpg", "image2": "img16.jpg", "similarity": 0.5636},
-  {"image1": "img18.jpg", "image2": "img17.jpg", "similarity": 0.6824},
-  {"image1": "img18.jpg", "image2": "img18.jpg", "similarity": 1.0},
-  {"image1": "img18.jpg", "image2": "img19.jpg", "similarity": 0.5066},
-  {"image1": "img18.jpg", "image2": "img20.jpg", "similarity": 0.6661},
-  {"image1": "img19.jpg", "image2": "img01.jpg", "similarity": 0.4321},
-  {"image1": "img19.jpg", "image2": "img02.jpg", "similarity": 0.3651},
-  {"image1": "img19.jpg", "image2": "img03.jpg", "similarity": 0.4174},
-  {"image1": "img19.jpg", "image2": "img04.jpg", "similarity": 0.6282},
-  {"image1": "img19.jpg", "image2": "img05.jpg", "similarity": 0.712},
-  {"image1": "img19.jpg", "image2": "img06.jpg", "similarity": 0.5635},
-  {"image1": "img19.jpg", "image2": "img07.jpg", "similarity": 0.6205},
-  {"image1": "img19.jpg", "image2": "img08.jpg", "similarity": 0.4446},
-  {"image1": "img19.jpg", "image2": "img09.jpg", "similarity": 0.4557},
-  {"image1": "img19.jpg", "image2": "img10.jpg", "similarity": 0.4584},
-  {"image1": "img19.jpg", "image2": "img11.jpg", "similarity": 0.8691},
-  {"image1": "img19.jpg", "image2": "img12.jpg", "similarity": 0.5603},
-  {"image1": "img19.jpg", "image2": "img13.jpg", "similarity": 0.5113},
-  {"image1": "img19.jpg", "image2": "img14.jpg", "similarity": 0.6861},
-  {"image1": "img19.jpg", "image2": "img15.jpg", "similarity": 0.4021},
-  {"image1": "img19.jpg", "image2": "img16.jpg", "similarity": 0.7334},
-  {"image1": "img19.jpg", "image2": "img17.jpg", "similarity": 0.491},
-  {"image1": "img19.jpg", "image2": "img18.jpg", "similarity": 0.5066},
-  {"image1": "img19.jpg", "image2": "img19.jpg", "similarity": 1.0},
-  {"image1": "img19.jpg", "image2": "img20.jpg", "similarity": 0.4923},
-  {"image1": "img20.jpg", "image2": "img01.jpg", "similarity": 0.8636},
-  {"image1": "img20.jpg", "image2": "img02.jpg", "similarity": 0.3724},
-  {"image1": "img20.jpg", "image2": "img03.jpg", "similarity": 0.6309},
-  {"image1": "img20.jpg", "image2": "img04.jpg", "similarity": 0.5796},
-  {"image1": "img20.jpg", "image2": "img05.jpg", "similarity": 0.6115},
-  {"image1": "img20.jpg", "image2": "img06.jpg", "similarity": 0.4685},
-  {"image1": "img20.jpg", "image2": "img07.jpg", "similarity": 0.5311},
-  {"image1": "img20.jpg", "image2": "img08.jpg", "similarity": 0.549},
-  {"image1": "img20.jpg", "image2": "img09.jpg", "similarity": 0.4872},
-  {"image1": "img20.jpg", "image2": "img10.jpg", "similarity": 0.5308},
-  {"image1": "img20.jpg", "image2": "img11.jpg", "similarity": 0.482},
-  {"image1": "img20.jpg", "image2": "img12.jpg", "similarity": 0.5738},
-  {"image1": "img20.jpg", "image2": "img13.jpg", "similarity": 0.5536},
-  {"image1": "img20.jpg", "image2": "img14.jpg", "similarity": 0.5982},
-  {"image1": "img20.jpg", "image2": "img15.jpg", "similarity": 0.5906},
-  {"image1": "img20.jpg", "image2": "img16.jpg", "similarity": 0.5664},
-  {"image1": "img20.jpg", "image2": "img17.jpg", "similarity": 0.6921},
-  {"image1": "img20.jpg", "image2": "img18.jpg", "similarity": 0.6661},
-  {"image1": "img20.jpg", "image2": "img19.jpg", "similarity": 0.4923},
-  {"image1": "img20.jpg", "image2": "img20.jpg", "similarity": 1.0}
-]
+  <footer class="container">
+  © <span id="year"></span> Style Matching • <span style="color:var(--muted)">Minimal demo</span>
+  </footer>
 
-  // List of all images (20 images named img01.jpg ... img20.jpg)
-  const allImages = [];
-  for(let i=1; i<=20; i++){
-    allImages.push(`img${String(i).padStart(2,'0')}.jpg`);
-  }
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  const container = document.getElementById('image-container');
-  const revealBtn = document.getElementById('reveal-btn');
-  const continueBtn = document.getElementById('continue-btn');
-
-  let currentRoundImages = [];
-  let selectedIndices = new Set();
-  let correctPair = [];
-
-  // Find most similar image to a given anchor image
-  function findMostSimilarTo(anchor) {
-    let maxScore = -Infinity;
-    let mostSimilar = null;
-
-    similarityData.forEach(pair => {
-      if(pair.image1 === anchor && pair.image2 !== anchor && pair.similarity > maxScore){
-        maxScore = pair.similarity;
-        mostSimilar = pair.image2;
-      } else if(pair.image2 === anchor && pair.image1 !== anchor && pair.similarity > maxScore){
-        maxScore = pair.similarity;
-        mostSimilar = pair.image1;
-      }
-    });
-
-    return mostSimilar;
-  }
-
-  // Pick two random images excluding given set
-  function pickRandomImages(excludeSet, count){
-    const candidates = allImages.filter(img => !excludeSet.has(img));
-    const picked = [];
-    while(picked.length < count && candidates.length > 0){
-      const idx = Math.floor(Math.random() * candidates.length);
-      picked.push(candidates.splice(idx,1)[0]);
-    }
-    return picked;
-  }
-
-  // Shuffle an array
-  function shuffle(array) {
-    for(let i = array.length -1; i > 0; i--){
-      const j = Math.floor(Math.random() * (i + 1));
-      [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
-  }
-
-  function renderImages(){
-    container.innerHTML = '';
-    selectedIndices.clear();
-
-    currentRoundImages.forEach((imgName, idx) => {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'img-wrapper';
-      wrapper.dataset.index = idx;
-
-      const img = document.createElement('img');
-      img.src = `images/${imgName}`;
-      img.alt = imgName;
-
-      wrapper.appendChild(img);
-      container.appendChild(wrapper);
-
-      wrapper.addEventListener('click', () => {
-        if(selectedIndices.has(idx)){
-          selectedIndices.delete(idx);
-          wrapper.classList.remove('selected');
-        } else if(selectedIndices.size < 2) {
-          selectedIndices.add(idx);
-          wrapper.classList.add('selected');
-        }
-      });
-    });
-
-    revealBtn.disabled = false;
-    continueBtn.disabled = true;
-  }
-
-  function startRound() {
-    selectedIndices.clear();
-
-    // (1) Choose random anchor
-    const anchor = allImages[Math.floor(Math.random() * allImages.length)];
-
-    // (2) Find its most similar image
-    const similar = findMostSimilarTo(anchor);
-
-    if (!similar) {
-      console.error(`No similar image found for anchor ${anchor}`);
-      return;
-    }
-
-    // (3) Pick 2 random distractors not in [anchor, similar]
-    const excludeSet = new Set([anchor, similar]);
-    const distractors = pickRandomImages(excludeSet, 2);
-
-    // Final set: anchor (first position), similar, distractor1, distractor2
-    const otherImages = shuffle([similar, ...distractors]);
-    currentRoundImages = [anchor, ...otherImages];
-
-    // Save correct pair for reveal highlighting
-    correctPair = [anchor, similar];
-
-    renderImages();
-  }
-
-  revealBtn.addEventListener('click', () => {
-    // Highlight correct images green
-    const wrappers = container.querySelectorAll('.img-wrapper');
-    wrappers.forEach((wrapper) => {
-      const imgName = currentRoundImages[wrapper.dataset.index];
-      if(correctPair.includes(imgName)) {
-        wrapper.classList.add('correct');
-      }
-    });
-    revealBtn.disabled = true;
-    continueBtn.disabled = false;
-  });
-
-  continueBtn.addEventListener('click', () => {
-    startRound();
-  });
-
-  // Start first round
-  startRound();
-</script>
-
+  <!-- Provide similarity data as a global array: window.SIMILARITY_DATA = [ {image1,image2,similarity}, ... ] -->
+  <script src="data/similarity.js"></script>
+  <!-- App code that reads SIMILARITY_DATA -->
+  <script src="js/main.js"></script>
 </body>
 </html>
