@@ -14,3 +14,8 @@ Suggestions:
 - Display the images in a standardised size.
 - Redo the selection highlight: currently extends outside some images, try other highlighting methods.
 - Test it on a tablet.
+
+- Add a countdown timer for each game round. Enable short competitions between players (time-based scoring).
+- Track **correct hits** (+1 point). Track **wrong hits** (–1 point). Show summary stats: (Total correct, Total wrong, Correct rate (%))
+- Small SQL database (no password/login needed). Store basic player name + score records. Keep history for leaderboard display.
+- Request data from the database via an API. Display the **Top N players and scores** in real-time.
