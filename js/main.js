@@ -17,8 +17,8 @@
   .image-card.selected { border-color: #3b82f6; } /* blue-500 */
 
   /* results */
-  .image-card.correct  { border-color: #22c55e; } /* green-500 */
-  .image-card.incorrect{ border-color: #ef4444; } /* red-500 */
+  .image-card.correct   { border-color: #22c55e; } /* green-500 */
+  .image-card.incorrect { border-color: #eab308; } /* yellow-500 */
 
   .pair-check {
     position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
@@ -49,6 +49,51 @@ const showToast = async (msg, timeout=1600) => {
 };
 function basenameLower(s) {
   return String(s).split('/').pop().trim().toLowerCase();
+}
+
+/** Sequence randomizer: unique per batch, caps to available, safe on 0 items */
+class SequenceRandomizer {
+  constructor(items = []) {
+    this.items = Array.from(new Set(items.map(String))); // dedupe manifest
+    this._bag = [];
+    this._refill();
+  }
+  _refill() {
+    this._bag = this.items.slice();
+    for (let i = this._bag.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [this._bag[i], this._bag[j]] = [this._bag[j], this._bag[i]];
+    }
+  }
+  /** Return up to n unique items (no repeats within the returned batch). */
+  next(n = 4) {
+    const total = this.items.length;
+    if (total === 0) return [];
+    const target = Math.max(1, Math.min(Math.floor(n) || 1, total));
+    const out = [];
+    const seen = new Set();
+
+    while (out.length < target) {
+      if (this._bag.length === 0) this._refill();
+
+      // find unseen candidate in current bag
+      let idx = -1;
+      for (let i = this._bag.length - 1; i >= 0; i--) {
+        const cand = this._bag[i];
+        if (!seen.has(cand)) { idx = i; break; }
+      }
+      if (idx === -1) {
+        // all bag items already used in this batch; reshuffle
+        this._refill();
+        if (seen.size >= total) break; // safety (shouldn't happen)
+        continue;
+      }
+      const val = this._bag.splice(idx, 1)[0];
+      out.push(val);
+      seen.add(val);
+    }
+    return out;
+  }
 }
 
 // ========================= Theme toggle =========================
@@ -83,8 +128,8 @@ class LocalManifestImageProvider {
     this.manifestUrl = manifestUrl;
     this.basePath = basePath;
     this._list = [];
-    this._index = 0;
     this._ready = this._load();
+    this._randomizer = new SequenceRandomizer([]);
   }
   async _load() {
     try {
@@ -92,29 +137,27 @@ class LocalManifestImageProvider {
       if (!res.ok) throw new Error('No manifest');
       const arr = await res.json();
       if (!Array.isArray(arr)) throw new Error('Manifest must be an array of filenames');
+      // If the manifest is empty, keep it empty so the empty-state shows.
       this._list = arr.filter(x => typeof x === 'string' && x.trim().length > 0);
     } catch (e) {
+      // Fallback only on fetch/parse error.
       this._list = Array.from({ length: 12 }, (_, i) => `img${String(i+1).padStart(2,'0')}.jpg`);
       console.warn('Manifest missing; using fallback names. Provide images/manifest.json.', e);
     }
-    this._shuffle(this._list);
+    this._randomizer = new SequenceRandomizer(this._list);
   }
-  _shuffle(a) { for (let i=a.length-1; i>0; i--) { const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
   async list(n = 4) {
     await this._ready;
-    const out = [];
-    for (let i = 0; i < n; i++) {
-      const raw = this._list[this._index % this._list.length];
-      const trimmed = raw.trim();
-      out.push({
+    const picked = this._randomizer.next(n); // unique per batch, capped to available
+    return picked.map(raw => {
+      const trimmed = String(raw).trim();
+      return {
         id: basenameLower(trimmed),
         label: trimmed,
         src: this.basePath + trimmed,
         selected: false
-      });
-      this._index++;
-    }
-    return out;
+      };
+    });
   }
 }
 
@@ -150,13 +193,23 @@ class GridLayoutManager {
 
       const check = document.createElement('div');
       check.className = 'pair-check';
-      check.textContent = '✓';           // default; will flip to ✗ for incorrect
+      check.textContent = ''; // neutral by default
       card.appendChild(check);
 
       card.addEventListener('click', () => onClick(img, card));
       img.el = card;
       this.container.appendChild(card);
     }
+  }
+  renderEmpty(message = 'No images left. Add more images or update the manifest.') {
+    this.clear();
+    const div = document.createElement('div');
+    div.setAttribute('role', 'note');
+    div.style.padding = '24px';
+    div.style.textAlign = 'center';
+    div.style.opacity = '0.8';
+    div.textContent = message;
+    this.container.appendChild(div);
   }
 }
 
@@ -238,13 +291,26 @@ class GameController {
     this.layout.clear();
     await this.sim.ready;
 
-    const n = Math.max(3, Math.min(12, Number(this.countInput?.value || 3)));
-    const fresh = await this.provider.list(n);
+    const req = Number(this.countInput?.value);
+    const n = Number.isFinite(req) ? Math.max(2, Math.floor(req)) : 2;
+
+    const fresh = await this.provider.list(n); // unique + capped inside
+    if (!fresh || fresh.length === 0) {
+      this.layout.renderEmpty('No images left. Add more images or update the manifest.');
+      showToast('No images left.');
+      return;
+    }
+    if (fresh.length < 2) {
+      this.layout.renderEmpty('Not enough images to form a pair. Please add more.');
+      showToast('Need at least two images.');
+      return;
+    }
+
     const processed = new ProcessingPipeline([this.processor]).apply(fresh);
     this.images = processed;
 
     this.layout.render(this.images, (img, card) => this.toggleSelect(img, card));
-    showToast(`Loaded ${n} image${n>1?'s':''}. Pick two, then press “Check answer”.`);
+    showToast(`Loaded ${fresh.length} image${fresh.length>1?'s':''}. Pick two, then press “Check answer”.`);
   }
 
   toggleSelect(img, card) {
@@ -263,7 +329,7 @@ class GameController {
       if (img.el) {
         img.el.classList.remove('selected','correct','incorrect','pair-winner');
         const overlay = img.el.querySelector('.pair-check');
-        if (overlay) overlay.textContent = '✓'; // reset icon
+        if (overlay) overlay.textContent = ''; // neutral
       }
     }
     if (clearResults) this.gridEl?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -294,34 +360,39 @@ class GameController {
     for (const img of this.images) {
       img.el?.classList.remove('pair-winner','correct','incorrect');
       const ov = img.el?.querySelector('.pair-check');
-      if (ov) ov.textContent = '✓';
+      if (ov) ov.textContent = '';
     }
 
     // Sets for comparison
     const userSet = new Set([chosen[0].id, chosen[1].id]);
     const bestSet = new Set([best.a.id, best.b.id]);
 
-    // Mark best pair as correct (green + check)
+    // Mark AI's best pair (green + 😉)
     [best.a, best.b].forEach(cardImg => {
       const el = cardImg.el;
       if (!el) return;
       el.classList.add('pair-winner','correct');
       const ov = el.querySelector('.pair-check');
-      if (ov) ov.textContent = '✓';
+      if (ov) ov.textContent = '😉';
     });
 
-    // Any selected card that isn't part of the best pair -> red + cross
-    let hadIncorrect = false;
+    // Any selected card that isn't part of AI's best -> yellow + 🤔
+    let differsFromAI = false;
     for (const img of chosen) {
       if (!bestSet.has(img.id)) {
-        hadIncorrect = true;
-        img.el?.classList.add('incorrect');          // border red
+        differsFromAI = true;
+        img.el?.classList.add('incorrect');          // border yellow via CSS
         const ov = img.el?.querySelector('.pair-check');
-        if (ov) ov.textContent = '✗';                // cross icon
+        if (ov) ov.textContent = '🤔';               // thoughtful emoji
       }
     }
 
-    showToast(hadIncorrect ? 'Not quite — best pair in green; your wrong pick marked in red.' : 'Correct!');
+    // Gentle, positive messaging only
+    if (differsFromAI) {
+      showToast("Nice pick! AI’s current best guess is highlighted 🤖");
+    } else {
+      showToast("🎉 This is also what AI believes to be the most similar pair 🎉");
+    }
   }
 }
 
@@ -341,5 +412,6 @@ class GameController {
     resetBtn: qs('#resetBtn')
   });
 
-  window.__streetMatch = { provider, processor, layout, similarity, game };
+  // expose internals (optional)
+  window.__streetMatch = { provider, processor, layout, similarity, game, SequenceRandomizer };
 })();
