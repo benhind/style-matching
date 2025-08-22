@@ -128,29 +128,55 @@ class LocalManifestImageProvider {
     this.manifestUrl = manifestUrl;
     this.basePath = basePath;
     this._list = [];
-    this._ready = this._load();
     this._randomizer = new SequenceRandomizer([]);
+    this._ready = this._load();
   }
+
+  _fromArray(arr, source) {
+    if (!Array.isArray(arr)) throw new Error('Manifest must be an array of filenames');
+    this._list = arr.filter(x => typeof x === 'string' && x.trim());
+    console.info(`[Provider] Loaded ${this._list.length} images from ${source}.`);
+  }
+
   async _load() {
-    try {
-      const res = await fetch(this.manifestUrl, { cache: 'no-store' });
-      if (!res.ok) throw new Error('No manifest');
-      const arr = await res.json();
-      if (!Array.isArray(arr)) throw new Error('Manifest must be an array of filenames');
-      // If the manifest is empty, keep it empty so the empty-state shows.
-      this._list = arr.filter(x => typeof x === 'string' && x.trim().length > 0);
-    } catch (e) {
-      // Fallback only on fetch/parse error.
-      this._list = Array.from({ length: 12 }, (_, i) => `img${String(i+1).padStart(2,'0')}.jpg`);
-      console.warn('Manifest missing; using fallback names. Provide images/manifest.json.', e);
+    // 1) Prefer JS global (works on file:// if you include images/manifest.js)
+    if (Array.isArray(window.LOCAL_IMAGE_MANIFEST)) {
+      try {
+        this._fromArray(window.LOCAL_IMAGE_MANIFEST, 'window.LOCAL_IMAGE_MANIFEST');
+      } catch (e) {
+        console.warn('[Provider] LOCAL_IMAGE_MANIFEST invalid; will try JSON.', e);
+        await this._loadJsonFallback();
+      }
+    } else {
+      // 2) Try JSON over http/https
+      await this._loadJsonFallback();
+    }
+
+    // 3) Finalize (no hard-coded fallback)
+    if (this._list.length === 0) {
+      console.warn('[Provider] No manifest found (JS or JSON). Image list is empty.');
     }
     this._randomizer = new SequenceRandomizer(this._list);
   }
+
+  async _loadJsonFallback() {
+    try {
+      const res = await fetch(this.manifestUrl, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const arr = await res.json();
+      this._fromArray(arr, this.manifestUrl);
+    } catch (e) {
+      console.warn(`[Provider] Failed to load ${this.manifestUrl}.`, e);
+      // leave _list empty
+    }
+  }
+
   async list(n = 4) {
     await this._ready;
-    const picked = this._randomizer.next(n); // unique per batch, capped to available
-    return picked.map(raw => {
-      const trimmed = String(raw).trim();
+    if (this._list.length === 0) return [];  // explicit “nothing found”
+    const picked = this._randomizer.next(n);
+    return picked.map(name => {
+      const trimmed = String(name).trim();
       return {
         id: basenameLower(trimmed),
         label: trimmed,
@@ -160,6 +186,8 @@ class LocalManifestImageProvider {
     });
   }
 }
+
+
 
 // ========================= Image Processing Pipeline =========================
 class UniformTileProcessor {
