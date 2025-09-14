@@ -42,7 +42,7 @@
 const qs = (s, el=document) => el.querySelector(s);
 const qsa = (s, el=document) => Array.from(el.querySelectorAll(s));
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-const showToast = async (msg, timeout=1600) => {
+const showToast = async (msg, timeout=5000) => {
   const t = qs('#toast'); if (!t) return;
   t.textContent = msg; t.classList.add('show');
   await sleep(timeout); t.classList.remove('show');
@@ -395,13 +395,13 @@ class GameController {
     const userSet = new Set([chosen[0].id, chosen[1].id]);
     const bestSet = new Set([best.a.id, best.b.id]);
 
-    // Mark AI's best pair (green + 😉)
+    // Mark AI's best pair (green + 🤖)
     [best.a, best.b].forEach(cardImg => {
       const el = cardImg.el;
       if (!el) return;
       el.classList.add('pair-winner','correct');
       const ov = el.querySelector('.pair-check');
-      if (ov) ov.textContent = '😉';
+      if (ov) ov.textContent = '🤖';
     });
 
     // Any selected card that isn't part of AI's best -> yellow + 🤔
